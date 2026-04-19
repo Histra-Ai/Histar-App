@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col justify-center gap-10 px-6 py-16">
@@ -15,12 +17,18 @@ export default function Home() {
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
-        <a
+        <Link
           className="inline-flex items-center justify-center rounded-full bg-zinc-950 px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-800"
           href="/turn"
         >
           Open Turn Tester
-        </a>
+        </Link>
+        <Link
+          className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-700 transition hover:border-zinc-950 hover:text-zinc-950"
+          href="/games"
+        >
+          View Saved Games
+        </Link>
         <a
           className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-700 transition hover:border-zinc-950 hover:text-zinc-950"
           href="https://supabase.com/dashboard"
