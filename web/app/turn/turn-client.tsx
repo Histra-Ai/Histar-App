@@ -21,8 +21,10 @@ type TurnResponse = {
 
 export default function TurnClientPage({
   initialGameId,
+  recap,
 }: {
   initialGameId: string;
+  recap: string | null;
 }) {
   const [gameId, setGameId] = useState(initialGameId);
   const [playerInput, setPlayerInput] = useState(
@@ -89,6 +91,15 @@ export default function TurnClientPage({
           </Link>
         </div>
       </header>
+
+      {recap ? (
+        <section className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+            Since you last played
+          </p>
+          <p className="mt-3 leading-7 text-zinc-700">{recap}</p>
+        </section>
+      ) : null}
 
       <form
         className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"

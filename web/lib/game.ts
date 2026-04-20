@@ -42,6 +42,7 @@ export type GameState = {
   lastNarrative: string | null;
   recentEvents: string[];
   recentCliffhanger: string | null;
+  worldSummary: string | null;
   objective: Objective;
   ruler: Ruler;
   pendingConsequences: PendingConsequence[];
@@ -161,6 +162,7 @@ export function getInitialState(gameId: string): GameState {
     lastNarrative: null,
     recentEvents: [],
     recentCliffhanger: "The first move will define the entire balance of power.",
+    worldSummary: null,
     objective: chooseObjective(gameId),
     ruler: chooseRuler(gameId),
     pendingConsequences: [],
@@ -231,6 +233,8 @@ export function normalizeState(state: unknown): GameState {
       typeof source.recentCliffhanger === "string"
         ? source.recentCliffhanger
         : fallback.recentCliffhanger,
+    worldSummary:
+      typeof source.worldSummary === "string" ? source.worldSummary : fallback.worldSummary,
     objective,
     ruler,
     pendingConsequences,
@@ -258,8 +262,8 @@ export function parseTurnPayload(outputText: string): TurnPayload {
   const cleaned = cleanJsonBlock(outputText);
   const parsed = JSON.parse(cleaned) as Partial<TurnPayload>;
 
-  if (typeof parsed.narrative !== "string" || !parsed.narrative.trim()) {
-    throw new Error("Model response did not include a narrative.");
+  if (typeof parsed.narrative !== "string" || parsed.narrative.trim().length < 30) {
+    throw new Error("Model response narrative is missing or too short.");
   }
 
   const deltas = Array.isArray(parsed.deltas)
@@ -372,6 +376,20 @@ export function formatRecentTurns(turns: RecentTurn[]) {
     .join("\n\n");
 }
 
+export function compactTurns(turns: RecentTurn[]): string {
+  if (!turns.length) return "";
+
+  return turns
+    .map((turn) => {
+      const outcome = turn.narrative
+        ? turn.narrative.slice(0, 140).trimEnd() + (turn.narrative.length > 140 ? "…" : "")
+        : "no recorded outcome";
+
+      return `Turn ${turn.turn_number}: ${turn.player_input} → ${outcome}`;
+    })
+    .join(" | ");
+}
+
 function formatPendingConsequences(pendingConsequences: PendingConsequence[]) {
   if (!pendingConsequences.length) {
     return "No delayed consequences are currently hanging over the state.";
@@ -392,6 +410,7 @@ export function buildPrompt(
   turnNumber: number,
   recentTurns: RecentTurn[],
   serverNotes: string[],
+  worldSummary: string | null,
 ) {
   return [
     "You are simulating one turn of an alternate-history strategy game.",
@@ -411,6 +430,7 @@ export function buildPrompt(
       tension: state.tension,
       recentCliffhanger: state.recentCliffhanger,
     })}`,
+    worldSummary ? `Earlier history (compressed):\n${worldSummary}` : "",
     `Recent turn history:\n${formatRecentTurns(recentTurns)}`,
     `Delayed consequences in motion:\n${formatPendingConsequences(state.pendingConsequences)}`,
     serverNotes.length ? `Resolved at the start of this turn:\n${serverNotes.join("\n")}` : "",

@@ -6,6 +6,7 @@ import {
   applyDeltas,
   buildPrompt,
   buildCliffhanger,
+  compactTurns,
   computeEnding,
   createPendingConsequences,
   getInitialState,
@@ -127,12 +128,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: recentTurns, error: recentTurnsError } = await supabaseAdmin
+    const { data: allTurns, error: recentTurnsError } = await supabaseAdmin
       .from("turns")
       .select("turn_number, player_input, narrative")
       .eq("game_id", gameId)
-      .order("turn_number", { ascending: false })
-      .limit(3);
+      .order("turn_number", { ascending: true });
 
     if (recentTurnsError) {
       return NextResponse.json(
@@ -141,22 +141,33 @@ export async function POST(req: Request) {
       );
     }
 
-    const orderedRecentTurns = [...((recentTurns ?? []) as RecentTurn[])].reverse();
+    const allTurnRows = (allTurns ?? []) as RecentTurn[];
+    const verbatimTurns = allTurnRows.slice(-3);
+    const olderTurns = allTurnRows.slice(0, Math.max(0, allTurnRows.length - 3));
+    const worldSummary = olderTurns.length ? compactTurns(olderTurns) : state.worldSummary;
+
     const serverEffects = resolveServerTurnEffects(state, nextTurnNumber);
+    const model = getModelName();
+    const prompt = buildPrompt(
+      playerInput,
+      serverEffects.state,
+      nextTurnNumber,
+      verbatimTurns,
+      serverEffects.notes,
+      worldSummary,
+    );
 
-    const completion = await client.responses.create({
-      model: getModelName(),
-      input: buildPrompt(
-        playerInput,
-        serverEffects.state,
-        nextTurnNumber,
-        orderedRecentTurns,
-        serverEffects.notes,
-      ),
-    });
+    let completion = await client.responses.create({ model, input: prompt });
+    let outputText = completion.output_text?.trim() || "";
+    let turnPayload;
 
-    const outputText = completion.output_text?.trim() || "";
-    const turnPayload = parseTurnPayload(outputText);
+    try {
+      turnPayload = parseTurnPayload(outputText);
+    } catch {
+      completion = await client.responses.create({ model, input: prompt });
+      outputText = completion.output_text?.trim() || "";
+      turnPayload = parseTurnPayload(outputText);
+    }
     const combinedEvents = [...serverEffects.events, ...turnPayload.events].slice(0, 5);
     const combinedDeltas = [...serverEffects.deltas, ...turnPayload.deltas];
     const nextState = applyDeltas(
@@ -165,6 +176,8 @@ export async function POST(req: Request) {
       turnPayload.narrative,
       combinedEvents,
     );
+    nextState.worldSummary = worldSummary;
+
     const pendingConsequences = createPendingConsequences(playerInput, nextTurnNumber);
     nextState.pendingConsequences = [
       ...nextState.pendingConsequences,
@@ -191,7 +204,7 @@ export async function POST(req: Request) {
         promptContext: {
           turnNumber: nextTurnNumber,
           state: serverEffects.state,
-          recentTurns: orderedRecentTurns,
+          recentTurns: verbatimTurns,
           serverNotes: serverEffects.notes,
         },
         serverEffects,
