@@ -13,11 +13,13 @@ export type ScenarioNeighbor = {
 export type ScenarioContext = {
   id: string;
   countryName: string;
+  playerCountryCode: string;
   era: string;
   year: number;
   crisisName: string;
   contextParagraph: string;
   neighbors: ScenarioNeighbor[];
+  projectionConfig: { center: [number, number]; scale: number };
 };
 
 export type Scenario = ScenarioContext & {
@@ -26,6 +28,16 @@ export type Scenario = ScenarioContext & {
   startingMetrics: Record<MetricKey, number>;
   historicalRuler: { name: string; trait: string; legitimacy: number; age: number };
   objective: Objective;
+};
+
+export type MapChange = {
+  neighborName: string;
+  newRelationship: ScenarioNeighbor["relationship"];
+  reason: string;
+};
+
+export type MapState = {
+  relationships: Record<string, ScenarioNeighbor["relationship"]>;
 };
 
 export type Objective = {
@@ -71,6 +83,7 @@ export type GameState = {
   pendingConsequences: PendingConsequence[];
   ending: EndingSummary | null;
   scenario: ScenarioContext | null;
+  mapState: MapState | null;
 };
 
 export type StateDelta = {
@@ -88,6 +101,7 @@ export type TurnPayload = {
   narrative: string;
   deltas: StateDelta[];
   events: TurnEvent[];
+  mapChanges?: MapChange[];
 };
 
 export type RecentTurn = {
@@ -185,6 +199,7 @@ const SCENARIOS: Scenario[] = [
   {
     id: "england-1337",
     countryName: "England",
+    playerCountryCode: "GBR",
     era: "Hundred Years' War",
     year: 1337,
     crisisName: "Edward's Claim",
@@ -209,10 +224,12 @@ const SCENARIOS: Scenario[] = [
     ],
     contextParagraph:
       "Edward III has formally claimed the French throne through his mother Isabella, daughter of Philip IV. The French crown passed to Philip VI of Valois, which Edward contests as illegitimate. War is inevitable — but timing, allies, and resources will determine whether this becomes a glorious campaign or a ruinous overreach. The Flemish cloth cities resent French taxes and are open to English partnership. Scotland threatens the northern border through its alliance with France. The English longbow gives tactical advantage on the field; sustaining a continental campaign demands treasury discipline and noble loyalty across two kingdoms.",
+    projectionConfig: { center: [-3, 52], scale: 1200 },
   },
   {
     id: "ottoman-1683",
     countryName: "Ottoman Empire",
+    playerCountryCode: "TUR",
     era: "The Great Siege",
     year: 1683,
     crisisName: "Vienna or Ruin",
@@ -242,10 +259,12 @@ const SCENARIOS: Scenario[] = [
     ],
     contextParagraph:
       "Grand Vizier Kara Mustafa Pasha commands the largest Ottoman force in a generation — over a hundred thousand men marching on Vienna, the Habsburg capital. Sultan Mehmed IV remains in Belgrade. A successful siege would crack the heart of Christian Europe and reshape the continent's balance of power for generations. But logistics are stretched hundreds of miles across hostile terrain, Jan Sobieski of Poland is known to be mobilizing a relief force, and the Venetians are raiding Ottoman shipping in the Adriatic. The campaign must succeed — failure in front of Vienna would be catastrophic, politically and personally.",
+    projectionConfig: { center: [20, 46], scale: 900 },
   },
   {
     id: "prussia-1740",
     countryName: "Prussia",
+    playerCountryCode: "DEU",
     era: "War of Austrian Succession",
     year: 1740,
     crisisName: "The Silesian Gamble",
@@ -275,10 +294,12 @@ const SCENARIOS: Scenario[] = [
     ],
     contextParagraph:
       "Frederick II has just inherited Prussia from his father Frederick William I. Austria's empress Maria Theresa faces a contested succession — Bavaria, France, and Spain all question her legitimacy. Silesia, the richest Habsburg province, lies adjacent to Prussia's border. An invasion now would be decisive if rapid, catastrophic if prolonged. Prussia's army is the finest in Germany, drilled to a standard no European force can easily match. But it is small. France, Russia, and Britain are watching carefully to see whether this young king is a serious force or an overreaching gambler.",
+    projectionConfig: { center: [15, 52], scale: 1100 },
   },
   {
     id: "byzantium-1453",
     countryName: "Byzantium",
+    playerCountryCode: "GRC",
     era: "The Final Siege",
     year: 1453,
     crisisName: "The Last Wall",
@@ -308,10 +329,12 @@ const SCENARIOS: Scenario[] = [
     ],
     contextParagraph:
       "Emperor Constantine XI Palaiologos governs the last remnant of the Roman Empire — Constantinople itself, a walled city of fifty thousand souls surrounded by eighty thousand Ottoman troops under Sultan Mehmed II. The Theodosian walls that held for a thousand years now face cannon that can breach stone. The garrison numbers barely seven thousand men, supplemented by Genoese mercenaries under Giovanni Giustiniani. Venice promised a fleet; it has not arrived. The Pope offered western crusade in exchange for union of the Orthodox and Catholic churches — but Greek priests and citizens resist bitterly. Every day the walls hold is a miracle already earned.",
+    projectionConfig: { center: [26, 40], scale: 1400 },
   },
   {
     id: "spain-1519",
     countryName: "Spain",
+    playerCountryCode: "ESP",
     era: "The Comuneros Crisis",
     year: 1519,
     crisisName: "A Foreign King",
@@ -336,10 +359,12 @@ const SCENARIOS: Scenario[] = [
     ],
     contextParagraph:
       "Charles of Habsburg has inherited Castile and Aragon through his grandparents Ferdinand and Isabella, then accepted election as Holy Roman Emperor. He arrives as a foreigner — barely nineteen, speaking no Spanish, attended by Flemish advisors, extracting Castilian wealth for imperial ambitions across Europe. The Castilian cities — Toledo, Segovia, Salamanca — are on the edge of open revolt under the Comunero banner, demanding a Spanish-born king who governs Spain for Spain. Meanwhile Hernán Cortés, acting without authorization, has marched into Mexico and is advancing on Tenochtitlan. Charles must hold his Spanish inheritance together while managing an empire none of his predecessors could have imagined.",
+    projectionConfig: { center: [-3, 42], scale: 1100 },
   },
   {
     id: "france-1789",
     countryName: "France",
+    playerCountryCode: "FRA",
     era: "The Revolution",
     year: 1789,
     crisisName: "The Estates-General",
@@ -368,6 +393,7 @@ const SCENARIOS: Scenario[] = [
     ],
     contextParagraph:
       "King Louis XVI has called the Estates-General for the first time in 175 years — a desperate measure to address France's fiscal collapse after decades of war and court excess. The Third Estate has broken away and declared itself a National Assembly, asserting the sovereignty of the French people against the crown. In Paris, bread prices have doubled and the streets are volatile. The Bastille still stands, but barely. Austria's emperor, Louis's brother-in-law, watches with alarm as the contagion threatens to spread. The army is divided between loyalty and sympathy with the people. The question is no longer whether France will transform, but whether the monarchy survives the transformation — and whether Louis can steer it.",
+    projectionConfig: { center: [4, 47], scale: 1200 },
   },
 ];
 
@@ -426,11 +452,20 @@ export function getInitialState(gameId: string, scenario?: Scenario): GameState 
       ? {
           id: scenario.id,
           countryName: scenario.countryName,
+          playerCountryCode: scenario.playerCountryCode,
           era: scenario.era,
           year: scenario.year,
           crisisName: scenario.crisisName,
           contextParagraph: scenario.contextParagraph,
           neighbors: scenario.neighbors,
+          projectionConfig: scenario.projectionConfig,
+        }
+      : null,
+    mapState: scenario
+      ? {
+          relationships: Object.fromEntries(
+            scenario.neighbors.map((n) => [n.name, n.relationship]),
+          ),
         }
       : null,
   };
@@ -522,6 +557,13 @@ export function normalizeState(state: unknown): GameState {
         ? (source.ending as EndingSummary)
         : fallback.ending,
     scenario,
+    mapState:
+      source.mapState &&
+      typeof source.mapState === "object" &&
+      "relationships" in source.mapState &&
+      typeof source.mapState.relationships === "object"
+        ? (source.mapState as MapState)
+        : fallback.mapState,
   };
 }
 
@@ -599,10 +641,38 @@ export function parseTurnPayload(outputText: string): TurnPayload {
         .slice(0, 3)
     : [];
 
+  const validRelationships: ReadonlyArray<ScenarioNeighbor["relationship"]> = [
+    "hostile",
+    "rival",
+    "neutral",
+    "ally",
+  ];
+
+  const mapChanges = Array.isArray((parsed as { mapChanges?: unknown }).mapChanges)
+    ? ((parsed as { mapChanges: unknown[] }).mapChanges)
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const c = item as Partial<MapChange>;
+          if (
+            typeof c.neighborName !== "string" ||
+            typeof c.newRelationship !== "string" ||
+            !validRelationships.includes(c.newRelationship as ScenarioNeighbor["relationship"])
+          )
+            return null;
+          return {
+            neighborName: c.neighborName.trim(),
+            newRelationship: c.newRelationship as ScenarioNeighbor["relationship"],
+            reason: typeof c.reason === "string" ? c.reason.trim() : "",
+          } satisfies MapChange;
+        })
+        .filter((c): c is MapChange => c !== null)
+    : undefined;
+
   return {
     narrative: parsed.narrative.trim(),
     deltas,
     events,
+    mapChanges: mapChanges?.length ? mapChanges : undefined,
   };
 }
 
@@ -696,6 +766,9 @@ export function buildPrompt(
     "Return valid JSON only. No markdown, no prose outside the JSON.",
     "Use this exact shape:",
     '{ "narrative": "string", "deltas": [{ "key": "treasury|military|stability|influence|tension", "amount": -10, "reason": "string" }], "events": [{ "headline": "string", "detail": "string" }] }',
+    state.scenario
+      ? 'If a diplomatic relationship with a neighboring power meaningfully changes this turn, also include: "mapChanges": [{ "neighborName": "string", "newRelationship": "hostile|rival|neutral|ally", "reason": "string" }]. Only include mapChanges when a relationship genuinely shifts — not every turn.'
+      : "",
     "NARRATIVE RULES:",
     "• 3 to 5 sentences.",
     "• Open with a specific event, person, or location — never 'You' or 'The ruler' as the first word.",
@@ -709,7 +782,11 @@ export function buildPrompt(
       ? `Historical setting: ${state.scenario.countryName}, ${state.scenario.year} — ${state.scenario.crisisName} (${state.scenario.era}).`
       : "",
     state.scenario ? `Context: ${state.scenario.contextParagraph}` : "",
-    state.scenario
+    state.scenario && state.mapState
+      ? `Neighboring powers: ${state.scenario.neighbors
+          .map((n) => `${n.name} (${state.mapState!.relationships[n.name] ?? n.relationship})`)
+          .join(", ")}.`
+      : state.scenario
       ? `Neighboring powers: ${state.scenario.neighbors.map((n) => `${n.name} (${n.relationship})`).join(", ")}.`
       : "",
     `Objective: ${state.objective.title} — ${state.objective.description} Target: ${state.objective.key} ≥ ${state.objective.target}.`,

@@ -1,15 +1,24 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 import type {
   EndingSummary,
   GameState,
+  MapState,
   ScenarioContext,
   StateDelta,
   TurnEvent,
 } from "@/lib/game";
+
+const StrategicMap = dynamic(() => import("@/components/StrategicMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-60 animate-pulse rounded-2xl border border-zinc-200 bg-zinc-100" />
+  ),
+});
 
 const EXAMPLE_ACTIONS = [
   "Raise taxes on the merchant guilds and redirect the funds to reinforce the border garrison.",
@@ -36,14 +45,23 @@ type TurnResponse = {
   error?: string;
 };
 
+const ACTION_BY_RELATIONSHIP: Record<string, (name: string) => string> = {
+  hostile: (name) => `Launch a campaign against ${name}: `,
+  rival: (name) => `Apply diplomatic pressure on ${name}: `,
+  neutral: (name) => `Open negotiations with ${name} to `,
+  ally: (name) => `Coordinate with ${name} on `,
+};
+
 export default function TurnClientPage({
   initialGameId,
   recap,
   initialScenario,
+  initialMapState,
 }: {
   initialGameId: string;
   recap: string | null;
   initialScenario: ScenarioContext | null;
+  initialMapState: MapState | null;
 }) {
   const [gameId, setGameId] = useState(initialGameId);
   const [playerInput, setPlayerInput] = useState(
@@ -52,6 +70,15 @@ export default function TurnClientPage({
   const [result, setResult] = useState<TurnResponse | null>(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const activeScenario = result?.state.scenario ?? initialScenario;
+  const activeMapState = result?.state.mapState ?? initialMapState;
+
+  function handleNeighborClick(neighborName: string) {
+    const rel = activeMapState?.relationships[neighborName];
+    const template = rel && ACTION_BY_RELATIONSHIP[rel];
+    setPlayerInput(template ? template(neighborName) : `Focus action on ${neighborName}: `);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,6 +161,14 @@ export default function TurnClientPage({
           </Link>
         </div>
       </header>
+
+      {activeScenario && activeMapState ? (
+        <StrategicMap
+          scenario={activeScenario}
+          mapState={activeMapState}
+          onNeighborClick={handleNeighborClick}
+        />
+      ) : null}
 
       {recap ? (
         <section className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6">

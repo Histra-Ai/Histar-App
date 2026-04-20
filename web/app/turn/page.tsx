@@ -1,4 +1,4 @@
-import { buildRecap, normalizeState, type RecentTurn, type ScenarioContext } from "@/lib/game";
+import { buildRecap, normalizeState, type MapState, type RecentTurn, type ScenarioContext } from "@/lib/game";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 import TurnClientPage from "./turn-client";
@@ -14,6 +14,7 @@ export default async function TurnPage({ searchParams }: TurnPageProps) {
   const gameId = params.gameId?.trim() || "";
   let recap: string | null = null;
   let initialScenario: ScenarioContext | null = null;
+  let initialMapState: MapState | null = null;
 
   if (gameId) {
     const [{ data: turns }, { data: stateRow }] = await Promise.all([
@@ -33,8 +34,16 @@ export default async function TurnPage({ searchParams }: TurnPageProps) {
       const state = normalizeState(stateRow.state);
       recap = buildRecap((turns as RecentTurn[]).slice(-5), state);
       initialScenario = state.scenario;
+      initialMapState = state.mapState;
     }
   }
 
-  return <TurnClientPage initialGameId={gameId} recap={recap} initialScenario={initialScenario} />;
+  return (
+    <TurnClientPage
+      initialGameId={gameId}
+      recap={recap}
+      initialScenario={initialScenario}
+      initialMapState={initialMapState}
+    />
+  );
 }

@@ -194,6 +194,14 @@ export async function POST(req: Request) {
     );
     nextState.worldSummary = worldSummary;
 
+    if (turnPayload.mapChanges?.length && nextState.mapState) {
+      const updated = { ...nextState.mapState.relationships };
+      for (const change of turnPayload.mapChanges) {
+        updated[change.neighborName] = change.newRelationship;
+      }
+      nextState.mapState = { relationships: updated };
+    }
+
     const pendingConsequences = createPendingConsequences(playerInput, nextTurnNumber);
 
     nextState.pendingConsequences = [
