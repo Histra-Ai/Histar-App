@@ -5,6 +5,29 @@ export type MetricKey =
   | "influence"
   | "tension";
 
+export type ScenarioNeighbor = {
+  name: string;
+  relationship: "hostile" | "rival" | "neutral" | "ally";
+};
+
+export type ScenarioContext = {
+  id: string;
+  countryName: string;
+  era: string;
+  year: number;
+  crisisName: string;
+  contextParagraph: string;
+  neighbors: ScenarioNeighbor[];
+};
+
+export type Scenario = ScenarioContext & {
+  description: string;
+  difficulty: "easy" | "medium" | "hard";
+  startingMetrics: Record<MetricKey, number>;
+  historicalRuler: { name: string; trait: string; legitimacy: number; age: number };
+  objective: Objective;
+};
+
 export type Objective = {
   key: MetricKey;
   title: string;
@@ -47,6 +70,7 @@ export type GameState = {
   ruler: Ruler;
   pendingConsequences: PendingConsequence[];
   ending: EndingSummary | null;
+  scenario: ScenarioContext | null;
 };
 
 export type StateDelta = {
@@ -157,6 +181,204 @@ const TRAIT_VOICE: Record<string, string> = {
   "ruthless": "Obstacles are removed. Sentiment is a liability. The goal is the only thing that matters.",
 };
 
+const SCENARIOS: Scenario[] = [
+  {
+    id: "england-1337",
+    countryName: "England",
+    era: "Hundred Years' War",
+    year: 1337,
+    crisisName: "Edward's Claim",
+    description:
+      "Edward III has challenged Philip VI's right to the French throne. War is coming — but so is the question of whether England can sustain it.",
+    difficulty: "medium",
+    startingMetrics: { treasury: 45, military: 55, stability: 60, influence: 40, tension: 40 },
+    historicalRuler: { name: "Edward III", trait: "audacious", legitimacy: 65, age: 25 },
+    objective: {
+      key: "influence",
+      title: "Establish English Supremacy",
+      description:
+        "Turn the military campaign into lasting diplomatic dominance over the continent.",
+      target: 72,
+    },
+    neighbors: [
+      { name: "France", relationship: "hostile" },
+      { name: "Scotland", relationship: "hostile" },
+      { name: "Flanders", relationship: "rival" },
+      { name: "Burgundy", relationship: "neutral" },
+      { name: "Castile", relationship: "neutral" },
+    ],
+    contextParagraph:
+      "Edward III has formally claimed the French throne through his mother Isabella, daughter of Philip IV. The French crown passed to Philip VI of Valois, which Edward contests as illegitimate. War is inevitable — but timing, allies, and resources will determine whether this becomes a glorious campaign or a ruinous overreach. The Flemish cloth cities resent French taxes and are open to English partnership. Scotland threatens the northern border through its alliance with France. The English longbow gives tactical advantage on the field; sustaining a continental campaign demands treasury discipline and noble loyalty across two kingdoms.",
+  },
+  {
+    id: "ottoman-1683",
+    countryName: "Ottoman Empire",
+    era: "The Great Siege",
+    year: 1683,
+    crisisName: "Vienna or Ruin",
+    description:
+      "Grand Vizier Kara Mustafa leads the largest Ottoman force in a generation toward Vienna. Success reshapes Europe. Failure ends careers — and lives.",
+    difficulty: "hard",
+    startingMetrics: { treasury: 55, military: 70, stability: 60, influence: 55, tension: 55 },
+    historicalRuler: {
+      name: "Kara Mustafa Pasha",
+      trait: "militaristic",
+      legitimacy: 60,
+      age: 51,
+    },
+    objective: {
+      key: "military",
+      title: "Breach the Gates of Vienna",
+      description:
+        "Sustain the siege and break Habsburg resistance before a relief force can arrive.",
+      target: 75,
+    },
+    neighbors: [
+      { name: "Habsburg Austria", relationship: "hostile" },
+      { name: "Poland-Lithuania", relationship: "hostile" },
+      { name: "Venice", relationship: "hostile" },
+      { name: "Wallachia", relationship: "neutral" },
+      { name: "Hungary", relationship: "neutral" },
+    ],
+    contextParagraph:
+      "Grand Vizier Kara Mustafa Pasha commands the largest Ottoman force in a generation — over a hundred thousand men marching on Vienna, the Habsburg capital. Sultan Mehmed IV remains in Belgrade. A successful siege would crack the heart of Christian Europe and reshape the continent's balance of power for generations. But logistics are stretched hundreds of miles across hostile terrain, Jan Sobieski of Poland is known to be mobilizing a relief force, and the Venetians are raiding Ottoman shipping in the Adriatic. The campaign must succeed — failure in front of Vienna would be catastrophic, politically and personally.",
+  },
+  {
+    id: "prussia-1740",
+    countryName: "Prussia",
+    era: "War of Austrian Succession",
+    year: 1740,
+    crisisName: "The Silesian Gamble",
+    description:
+      "Frederick II has inherited Prussia and sees opportunity in Austria's succession crisis. One bold move could define his reign — or end it.",
+    difficulty: "medium",
+    startingMetrics: { treasury: 40, military: 60, stability: 65, influence: 35, tension: 45 },
+    historicalRuler: {
+      name: "Frederick II",
+      trait: "coldly pragmatic",
+      legitimacy: 70,
+      age: 28,
+    },
+    objective: {
+      key: "military",
+      title: "Hold Silesia",
+      description:
+        "Seize and consolidate Silesia before Austria can recover and marshal a response.",
+      target: 70,
+    },
+    neighbors: [
+      { name: "Austria", relationship: "hostile" },
+      { name: "Saxony", relationship: "rival" },
+      { name: "France", relationship: "ally" },
+      { name: "Russia", relationship: "neutral" },
+      { name: "Sweden", relationship: "neutral" },
+    ],
+    contextParagraph:
+      "Frederick II has just inherited Prussia from his father Frederick William I. Austria's empress Maria Theresa faces a contested succession — Bavaria, France, and Spain all question her legitimacy. Silesia, the richest Habsburg province, lies adjacent to Prussia's border. An invasion now would be decisive if rapid, catastrophic if prolonged. Prussia's army is the finest in Germany, drilled to a standard no European force can easily match. But it is small. France, Russia, and Britain are watching carefully to see whether this young king is a serious force or an overreaching gambler.",
+  },
+  {
+    id: "byzantium-1453",
+    countryName: "Byzantium",
+    era: "The Final Siege",
+    year: 1453,
+    crisisName: "The Last Wall",
+    description:
+      "Constantine XI defends Constantinople against Mehmed II's overwhelming force. The city may fall — but how it falls, and how long it holds, is still to be written.",
+    difficulty: "hard",
+    startingMetrics: { treasury: 20, military: 25, stability: 40, influence: 20, tension: 80 },
+    historicalRuler: {
+      name: "Constantine XI Palaiologos",
+      trait: "traditionalist",
+      legitimacy: 75,
+      age: 49,
+    },
+    objective: {
+      key: "stability",
+      title: "Hold the City",
+      description:
+        "Keep the walls manned and the garrison cohesive long enough for relief to become possible.",
+      target: 55,
+    },
+    neighbors: [
+      { name: "Ottoman Empire", relationship: "hostile" },
+      { name: "Genoa", relationship: "neutral" },
+      { name: "Venice", relationship: "rival" },
+      { name: "Serbia", relationship: "hostile" },
+      { name: "Papal States", relationship: "neutral" },
+    ],
+    contextParagraph:
+      "Emperor Constantine XI Palaiologos governs the last remnant of the Roman Empire — Constantinople itself, a walled city of fifty thousand souls surrounded by eighty thousand Ottoman troops under Sultan Mehmed II. The Theodosian walls that held for a thousand years now face cannon that can breach stone. The garrison numbers barely seven thousand men, supplemented by Genoese mercenaries under Giovanni Giustiniani. Venice promised a fleet; it has not arrived. The Pope offered western crusade in exchange for union of the Orthodox and Catholic churches — but Greek priests and citizens resist bitterly. Every day the walls hold is a miracle already earned.",
+  },
+  {
+    id: "spain-1519",
+    countryName: "Spain",
+    era: "The Comuneros Crisis",
+    year: 1519,
+    crisisName: "A Foreign King",
+    description:
+      "Charles I arrives as a stranger to his own kingdom. The Castilian cities are ready to revolt. The New World is being seized without his permission. He must hold it together.",
+    difficulty: "medium",
+    startingMetrics: { treasury: 60, military: 50, stability: 35, influence: 55, tension: 55 },
+    historicalRuler: { name: "Charles I", trait: "reform-minded", legitimacy: 50, age: 19 },
+    objective: {
+      key: "stability",
+      title: "Consolidate the Crowns",
+      description:
+        "Bring Castile and Aragon under unified authority before rebellion tears them apart.",
+      target: 60,
+    },
+    neighbors: [
+      { name: "France", relationship: "rival" },
+      { name: "Portugal", relationship: "neutral" },
+      { name: "Papal States", relationship: "neutral" },
+      { name: "England", relationship: "neutral" },
+      { name: "Navarre", relationship: "hostile" },
+    ],
+    contextParagraph:
+      "Charles of Habsburg has inherited Castile and Aragon through his grandparents Ferdinand and Isabella, then accepted election as Holy Roman Emperor. He arrives as a foreigner — barely nineteen, speaking no Spanish, attended by Flemish advisors, extracting Castilian wealth for imperial ambitions across Europe. The Castilian cities — Toledo, Segovia, Salamanca — are on the edge of open revolt under the Comunero banner, demanding a Spanish-born king who governs Spain for Spain. Meanwhile Hernán Cortés, acting without authorization, has marched into Mexico and is advancing on Tenochtitlan. Charles must hold his Spanish inheritance together while managing an empire none of his predecessors could have imagined.",
+  },
+  {
+    id: "france-1789",
+    countryName: "France",
+    era: "The Revolution",
+    year: 1789,
+    crisisName: "The Estates-General",
+    description:
+      "Louis XVI has called the Estates-General in desperation. The Third Estate has already broken away. The Bastille still stands, but only just.",
+    difficulty: "hard",
+    startingMetrics: { treasury: 20, military: 50, stability: 30, influence: 45, tension: 70 },
+    historicalRuler: {
+      name: "Louis XVI",
+      trait: "beloved but impulsive",
+      legitimacy: 50,
+      age: 35,
+    },
+    objective: {
+      key: "stability",
+      title: "Survive the Storm",
+      description: "Navigate the revolutionary crisis without losing the crown or the country.",
+      target: 55,
+    },
+    neighbors: [
+      { name: "Austria", relationship: "rival" },
+      { name: "Prussia", relationship: "rival" },
+      { name: "Britain", relationship: "rival" },
+      { name: "Spain", relationship: "ally" },
+      { name: "Netherlands", relationship: "neutral" },
+    ],
+    contextParagraph:
+      "King Louis XVI has called the Estates-General for the first time in 175 years — a desperate measure to address France's fiscal collapse after decades of war and court excess. The Third Estate has broken away and declared itself a National Assembly, asserting the sovereignty of the French people against the crown. In Paris, bread prices have doubled and the streets are volatile. The Bastille still stands, but barely. Austria's emperor, Louis's brother-in-law, watches with alarm as the contagion threatens to spread. The army is divided between loyalty and sympathy with the people. The question is no longer whether France will transform, but whether the monarchy survives the transformation — and whether Louis can steer it.",
+  },
+];
+
+export function getScenarios(): Scenario[] {
+  return SCENARIOS;
+}
+
+export function getScenarioById(id: string): Scenario | undefined {
+  return SCENARIOS.find((s) => s.id === id);
+}
+
 function hashString(input: string): number {
   let hash = 0;
 
@@ -183,21 +405,34 @@ function chooseRuler(gameId: string): Ruler {
   };
 }
 
-export function getInitialState(gameId: string): GameState {
+export function getInitialState(gameId: string, scenario?: Scenario): GameState {
   return {
-    treasury: 50,
-    military: 50,
-    stability: 50,
-    influence: 50,
-    tension: 20,
+    treasury: scenario?.startingMetrics.treasury ?? 50,
+    military: scenario?.startingMetrics.military ?? 50,
+    stability: scenario?.startingMetrics.stability ?? 50,
+    influence: scenario?.startingMetrics.influence ?? 50,
+    tension: scenario?.startingMetrics.tension ?? 20,
     lastNarrative: null,
     recentEvents: [],
-    recentCliffhanger: "The first move will define the entire balance of power.",
+    recentCliffhanger: scenario
+      ? `${scenario.crisisName} — the opening move will define what follows.`
+      : "The first move will define the entire balance of power.",
     worldSummary: null,
-    objective: chooseObjective(gameId),
-    ruler: chooseRuler(gameId),
+    objective: scenario?.objective ?? chooseObjective(gameId),
+    ruler: scenario ? { ...scenario.historicalRuler } : chooseRuler(gameId),
     pendingConsequences: [],
     ending: null,
+    scenario: scenario
+      ? {
+          id: scenario.id,
+          countryName: scenario.countryName,
+          era: scenario.era,
+          year: scenario.year,
+          crisisName: scenario.crisisName,
+          contextParagraph: scenario.contextParagraph,
+          neighbors: scenario.neighbors,
+        }
+      : null,
   };
 }
 
@@ -234,6 +469,14 @@ export function normalizeState(state: unknown): GameState {
           age: typeof source.ruler.age === "number" ? source.ruler.age : fallback.ruler.age,
         }
       : fallback.ruler;
+
+  const scenario =
+    source.scenario &&
+    typeof source.scenario === "object" &&
+    typeof source.scenario.id === "string" &&
+    typeof source.scenario.countryName === "string"
+      ? (source.scenario as ScenarioContext)
+      : fallback.scenario;
 
   const pendingConsequences = Array.isArray(source.pendingConsequences)
     ? source.pendingConsequences
@@ -278,6 +521,7 @@ export function normalizeState(state: unknown): GameState {
       typeof source.ending.achievedObjective === "boolean"
         ? (source.ending as EndingSummary)
         : fallback.ending,
+    scenario,
   };
 }
 
@@ -446,7 +690,9 @@ export function buildPrompt(
   const traitVoice = TRAIT_VOICE[state.ruler.trait] ?? "Write with a sense of consequence.";
 
   return [
-    "You are the narrator of an alternate-history political chronicle.",
+    state.scenario
+      ? `You are the narrator of an alternate-history political chronicle set in ${state.scenario.countryName}, ${state.scenario.year}.`
+      : "You are the narrator of an alternate-history political chronicle.",
     "Return valid JSON only. No markdown, no prose outside the JSON.",
     "Use this exact shape:",
     '{ "narrative": "string", "deltas": [{ "key": "treasury|military|stability|influence|tension", "amount": -10, "reason": "string" }], "events": [{ "headline": "string", "detail": "string" }] }',
@@ -459,6 +705,13 @@ export function buildPrompt(
     "DELTA RULES: amounts between -12 and +12. At most 3 deltas and 3 events. Keep changes grounded and proportionate.",
     "Maintain strict continuity. Reference prior events by name when relevant. Do not restart the world.",
     `Turn ${turnNumber} of ${MAX_TURNS}.`,
+    state.scenario
+      ? `Historical setting: ${state.scenario.countryName}, ${state.scenario.year} — ${state.scenario.crisisName} (${state.scenario.era}).`
+      : "",
+    state.scenario ? `Context: ${state.scenario.contextParagraph}` : "",
+    state.scenario
+      ? `Neighboring powers: ${state.scenario.neighbors.map((n) => `${n.name} (${n.relationship})`).join(", ")}.`
+      : "",
     `Objective: ${state.objective.title} — ${state.objective.description} Target: ${state.objective.key} ≥ ${state.objective.target}.`,
     `Ruler: ${state.ruler.name}, ${state.ruler.trait}, legitimacy ${state.ruler.legitimacy}, age ${state.ruler.age}.`,
     `State: ${JSON.stringify({
@@ -780,6 +1033,9 @@ export function buildRecap(turns: RecentTurn[], state: GameState) {
     : "No major flashpoints have been recorded yet.";
 
   return [
+    state.scenario
+      ? `Setting: ${state.scenario.countryName}, ${state.scenario.year} — ${state.scenario.crisisName}.`
+      : null,
     `Objective: ${state.objective.title}. ${state.objective.description}`,
     `The current ruler is ${state.ruler.name}, a ${state.ruler.trait} figure with legitimacy at ${state.ruler.legitimacy}.`,
     `You are returning on turn ${lastTurn.turn_number}.`,

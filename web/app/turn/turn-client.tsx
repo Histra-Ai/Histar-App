@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 
-import type { EndingSummary, GameState, StateDelta, TurnEvent } from "@/lib/game";
+import type {
+  EndingSummary,
+  GameState,
+  ScenarioContext,
+  StateDelta,
+  TurnEvent,
+} from "@/lib/game";
 
 const EXAMPLE_ACTIONS = [
   "Raise taxes on the merchant guilds and redirect the funds to reinforce the border garrison.",
@@ -33,9 +39,11 @@ type TurnResponse = {
 export default function TurnClientPage({
   initialGameId,
   recap,
+  initialScenario,
 }: {
   initialGameId: string;
   recap: string | null;
+  initialScenario: ScenarioContext | null;
 }) {
   const [gameId, setGameId] = useState(initialGameId);
   const [playerInput, setPlayerInput] = useState(
@@ -83,17 +91,41 @@ export default function TurnClientPage({
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 px-6 py-12">
       <header className="space-y-3">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
-          Histra Test Loop
-        </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-zinc-950">
-          Run a turn against the first game route
-        </h1>
-        <p className="max-w-2xl text-base leading-7 text-zinc-600">
-          Leave the game ID blank to create a fresh game. Reuse the returned game
-          ID to keep advancing the same session.
-        </p>
+        {initialScenario ?? result?.state.scenario ? (
+          <>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+              {(initialScenario ?? result?.state.scenario)?.countryName}
+              {" · "}
+              {(initialScenario ?? result?.state.scenario)?.year}
+            </p>
+            <h1 className="text-4xl font-semibold tracking-tight text-zinc-950">
+              {(initialScenario ?? result?.state.scenario)?.crisisName}
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-zinc-600">
+              {(initialScenario ?? result?.state.scenario)?.era}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">
+              Histra
+            </p>
+            <h1 className="text-4xl font-semibold tracking-tight text-zinc-950">
+              Turn tester
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-zinc-600">
+              Leave the game ID blank to create a fresh game. Reuse the returned game ID to
+              keep advancing the same session.
+            </p>
+          </>
+        )}
         <div className="flex flex-wrap gap-3 pt-2">
+          <Link
+            href="/new-game"
+            className="inline-flex items-center justify-center rounded-full bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800"
+          >
+            New Game
+          </Link>
           <Link
             href="/games"
             className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-950 hover:text-zinc-950"
@@ -166,6 +198,19 @@ export default function TurnClientPage({
 
       {result ? (
         <section className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
+          {result.state.scenario ? (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+              <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 font-medium text-zinc-700">
+                {result.state.scenario.countryName}
+              </span>
+              <span className="rounded-full border border-zinc-200 bg-white px-3 py-1">
+                {result.state.scenario.year} · {result.state.scenario.era}
+              </span>
+              <span className="rounded-full border border-zinc-200 bg-white px-3 py-1">
+                {result.state.scenario.crisisName}
+              </span>
+            </div>
+          ) : null}
           <div className="grid gap-3 text-sm text-zinc-600 sm:grid-cols-2">
             <p>
               <span className="font-medium text-zinc-900">Game ID:</span> {result.gameId}
