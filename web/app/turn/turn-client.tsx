@@ -5,6 +5,17 @@ import { FormEvent, useState } from "react";
 
 import type { EndingSummary, GameState, StateDelta, TurnEvent } from "@/lib/game";
 
+const EXAMPLE_ACTIONS = [
+  "Raise taxes on the merchant guilds and redirect the funds to reinforce the border garrison.",
+  "Open secret negotiations with our rival's disaffected eastern province.",
+  "Declare a state of emergency and consolidate military command under a trusted general.",
+  "Send grain relief to the restless southern territories to buy their loyalty.",
+  "Commission a spy network inside the foreign court before the spring negotiations.",
+  "Push an ultimatum: return our disputed territories or we close the trade routes.",
+  "Conscript levies from the northern cities and march them south to the frontier.",
+  "Offer a marriage alliance to bind the northern duchy to our cause.",
+];
+
 type TurnResponse = {
   gameId: string;
   turnNumber: number;
@@ -115,14 +126,28 @@ export default function TurnClientPage({
           />
         </label>
 
-        <label className="block space-y-2">
+        <div className="space-y-2">
           <span className="text-sm font-medium text-zinc-800">Player action</span>
           <textarea
-            className="min-h-40 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-900"
+            className="min-h-36 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-900"
+            placeholder="Describe your ruler's decision this turn…"
             value={playerInput}
             onChange={(event) => setPlayerInput(event.target.value)}
           />
-        </label>
+          <p className="text-xs text-zinc-500">Examples — click to use:</p>
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_ACTIONS.map((action) => (
+              <button
+                key={action}
+                type="button"
+                onClick={() => setPlayerInput(action)}
+                className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-left text-xs text-zinc-600 transition hover:border-zinc-400 hover:bg-white hover:text-zinc-950"
+              >
+                {action.length > 60 ? action.slice(0, 60) + "…" : action}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <button
           className="rounded-full bg-zinc-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"

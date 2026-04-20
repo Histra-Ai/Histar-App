@@ -115,6 +115,16 @@ const RULER_NAMES = [
   "Sera Dalmont",
   "Lucan Rhes",
   "Nadia Orsini",
+  "Caspar Dren",
+  "Livia Thessan",
+  "Oren Falke",
+  "Dara Voss",
+  "Silvan Krael",
+  "Ysabel Morn",
+  "Hadric Solenne",
+  "Petra Vayne",
+  "Coll Brandis",
+  "Emra Dust",
 ];
 
 const RULER_TRAITS = [
@@ -124,7 +134,28 @@ const RULER_TRAITS = [
   "paranoid",
   "reform-minded",
   "militaristic",
+  "charismatic but vain",
+  "scholarly",
+  "vengeful",
+  "mercantile",
+  "traditionalist",
+  "ruthless",
 ];
+
+const TRAIT_VOICE: Record<string, string> = {
+  "audacious": "Bold gambits define this reign. Prose should crackle with urgency — this ruler moves fast and expects the world to keep up.",
+  "coldly pragmatic": "Every action is a transaction. Strip sentiment. Name the cost and the gain plainly.",
+  "beloved but impulsive": "Warmth and volatility in equal measure. Good instincts undercut by bad timing. People forgive, then worry.",
+  "paranoid": "Trust no one. Every ally is a contingency. Decisions are layered in suspicion and defensive in character.",
+  "reform-minded": "Ideals meet entrenched power. Change is possible but never clean. Resistance comes from inside as much as outside.",
+  "militaristic": "Force is the first language. Strength commands respect. Hesitation reads as weakness.",
+  "charismatic but vain": "Image is power. How this looks matters as much as what it achieves. Reputation is the real currency.",
+  "scholarly": "Deliberate and information-driven. Patience over aggression. The ruler reads the room before acting.",
+  "vengeful": "Old grievances animate current decisions. Rivals from the past are never forgotten or forgiven.",
+  "mercantile": "Everything has a price. Loyalty is an investment. Alliances hold only as long as they pay.",
+  "traditionalist": "Old oaths and old precedent bind the realm. Change is suspect. New ideas must wear old clothes to survive.",
+  "ruthless": "Obstacles are removed. Sentiment is a liability. The goal is the only thing that matters.",
+};
 
 function hashString(input: string): number {
   let hash = 0;
@@ -412,17 +443,25 @@ export function buildPrompt(
   serverNotes: string[],
   worldSummary: string | null,
 ) {
+  const traitVoice = TRAIT_VOICE[state.ruler.trait] ?? "Write with a sense of consequence.";
+
   return [
-    "You are simulating one turn of an alternate-history strategy game.",
+    "You are the narrator of an alternate-history political chronicle.",
     "Return valid JSON only. No markdown, no prose outside the JSON.",
     "Use this exact shape:",
     '{ "narrative": "string", "deltas": [{ "key": "treasury|military|stability|influence|tension", "amount": -10, "reason": "string" }], "events": [{ "headline": "string", "detail": "string" }] }',
-    "Keep deltas small and believable. Use at most 3 deltas and 3 events.",
-    "Maintain continuity with the previous turns. Do not act like each turn is a fresh start.",
-    `Current turn number: ${turnNumber}`,
-    `Strategic objective: ${state.objective.title} - ${state.objective.description} Target ${state.objective.key} ${state.objective.target}.`,
-    `Current ruler: ${state.ruler.name}, ${state.ruler.trait}, legitimacy ${state.ruler.legitimacy}.`,
-    `Current state: ${JSON.stringify({
+    "NARRATIVE RULES:",
+    "• 3 to 5 sentences.",
+    "• Open with a specific event, person, or location — never 'You' or 'The ruler' as the first word.",
+    "• Include at least one proper noun (a name, a city, a faction, a title).",
+    "• Close with a sentence that names a threat, raises a question, or creates anticipation.",
+    `• Ruler voice: ${state.ruler.name} is ${state.ruler.trait}. ${traitVoice}`,
+    "DELTA RULES: amounts between -12 and +12. At most 3 deltas and 3 events. Keep changes grounded and proportionate.",
+    "Maintain strict continuity. Reference prior events by name when relevant. Do not restart the world.",
+    `Turn ${turnNumber} of ${MAX_TURNS}.`,
+    `Objective: ${state.objective.title} — ${state.objective.description} Target: ${state.objective.key} ≥ ${state.objective.target}.`,
+    `Ruler: ${state.ruler.name}, ${state.ruler.trait}, legitimacy ${state.ruler.legitimacy}, age ${state.ruler.age}.`,
+    `State: ${JSON.stringify({
       treasury: state.treasury,
       military: state.military,
       stability: state.stability,
@@ -430,11 +469,11 @@ export function buildPrompt(
       tension: state.tension,
       recentCliffhanger: state.recentCliffhanger,
     })}`,
-    worldSummary ? `Earlier history (compressed):\n${worldSummary}` : "",
-    `Recent turn history:\n${formatRecentTurns(recentTurns)}`,
-    `Delayed consequences in motion:\n${formatPendingConsequences(state.pendingConsequences)}`,
-    serverNotes.length ? `Resolved at the start of this turn:\n${serverNotes.join("\n")}` : "",
-    `Player action: ${playerInput}`,
+    worldSummary ? `Earlier history:\n${worldSummary}` : "",
+    `Recent turns:\n${formatRecentTurns(recentTurns)}`,
+    `Pending consequences:\n${formatPendingConsequences(state.pendingConsequences)}`,
+    serverNotes.length ? `Events at turn start:\n${serverNotes.join("\n")}` : "",
+    `Player's decision: ${playerInput}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -611,22 +650,60 @@ export function buildCliffhanger(state: GameState, upcomingTurn: number): string
     .sort((left, right) => left.triggerTurn - right.triggerTurn)[0];
 
   if (nextPending) {
-    return `A delayed consequence is still in motion and may break open on turn ${nextPending.triggerTurn}: ${nextPending.summary}`;
+    const urgency =
+      nextPending.risk === "high"
+        ? "Something dangerous is still unresolved"
+        : "An earlier decision has not yet fully landed";
+    return `${urgency} — due on turn ${nextPending.triggerTurn}: ${nextPending.summary}`;
+  }
+
+  if (state.stability < 20) {
+    return `The state is fracturing. ${state.ruler.name}'s next decision may be the last one that carries any real authority.`;
+  }
+
+  if (state.ruler.legitimacy < 25) {
+    return `${state.ruler.name}'s grip on power is slipping. Rivals are quietly positioning for what comes next.`;
   }
 
   if (state.stability < 35) {
-    return "The next turn may begin with unrest spilling into open revolt.";
+    return "Unrest has moved from whispers to open grumbling. One more misstep and it becomes something harder to contain.";
   }
 
-  if (state.tension > 70) {
-    return "One more reckless move could push the region into open crisis.";
+  if (state.tension > 80) {
+    return "The situation is a single spark from open conflict. Every move will be read as either provocation or weakness.";
+  }
+
+  if (state.tension > 65) {
+    return "Foreign courts are watching every dispatch. The next decision will be tested for signs of hesitation.";
+  }
+
+  if (state.treasury < 20) {
+    return "The treasury is nearly empty. Without coin, promises are all that hold the alliance together — and promises fray.";
+  }
+
+  if (state.military < 20) {
+    return "The army is dangerously thin. Rivals have noticed the gaps in the frontier, and they are patient.";
+  }
+
+  if (state.influence > 75) {
+    return "The realm's position is strong, which has made its enemies careful. They will move when the moment favors them, not before.";
   }
 
   if (upcomingTurn >= MAX_TURNS) {
-    return "The final reckoning is approaching. The next decisions will define your legacy.";
+    return "The final reckoning is here. What remains will be judged not by intention but by outcome.";
   }
 
-  return "The balance of power is unsettled, and the next move may force hidden tensions into the open.";
+  const generics = [
+    "The realm holds — for now. Hidden debts are still being called in.",
+    "Something is shifting beneath the surface. The next turn may reveal what.",
+    "Rivals are calculating their response. The pause before a storm has its own weight.",
+    "The balance of power is unsettled. Alliances that looked solid are quietly being tested.",
+    "A decision of this kind always produces echoes. The next move will feel them.",
+  ];
+
+  return generics[
+    hashString(`cliffhanger:${upcomingTurn}:${state.stability}:${state.tension}`) % generics.length
+  ];
 }
 
 export function computeEnding(state: GameState): EndingSummary {
@@ -644,18 +721,40 @@ export function computeEnding(state: GameState): EndingSummary {
     ),
   );
 
+  const verdictIndex = hashString(`verdict:${state.ruler.name}:${score}`) % 3;
+
   let verdict = "";
 
   if (achievedObjective && state.stability >= 45) {
-    verdict = "You bent history without letting the state break.";
+    verdict = [
+      "You bent history without letting the state break.",
+      "The objective was met and the realm held. That combination is rarer than it looks.",
+      `${state.ruler.name} leaves behind a realm that is stronger than the one inherited. History will note it.`,
+    ][verdictIndex];
   } else if (achievedObjective) {
-    verdict = "You achieved the objective, but the realm paid for it in nerves and scars.";
+    verdict = [
+      "You achieved the objective, but the realm paid for it in nerves and scars.",
+      "The goal was reached, though the cost showed up in cracks that will take years to repair.",
+      "Objective met — but at a price. The chronicles will argue about whether it was worth it.",
+    ][verdictIndex];
   } else if (state.stability < 25) {
-    verdict = "The state survived the campaign, but authority cracked from within.";
+    verdict = [
+      "The state survived the campaign, but authority cracked from within.",
+      "The objective slipped away while internal order was being held together with promises.",
+      `${state.ruler.name} endured, but the realm is more fragile at the end than at the beginning.`,
+    ][verdictIndex];
   } else if (state.tension > 75) {
-    verdict = "You left behind a charged peace that looks one breath away from renewed crisis.";
+    verdict = [
+      "You left behind a charged peace that looks one breath away from renewed crisis.",
+      "The objective was missed and tension is high. The next ruler inherits a volatile inheritance.",
+      "Stability holds — barely. But the region is still one miscalculation from open conflict.",
+    ][verdictIndex];
   } else {
-    verdict = "You endured, but history will remember the campaign as unfinished.";
+    verdict = [
+      "You endured, but history will remember the campaign as unfinished.",
+      "The realm survived intact, but the original objective was never reached. A competent stalemate.",
+      `${state.ruler.name} kept the state together without achieving the defining ambition. Capable, but incomplete.`,
+    ][verdictIndex];
   }
 
   const summary = achievedObjective
