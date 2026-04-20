@@ -15,6 +15,7 @@ import {
   resolveServerTurnEffects,
   type RecentTurn,
 } from "@/lib/game";
+import { detectStandout, estimateCost, type TurnMetrics } from "@/lib/metrics";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type TurnRequest = {
@@ -141,10 +142,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const disableWorldSummary = process.env.DISABLE_WORLD_SUMMARY === "true";
+    const disableParseRetry = process.env.DISABLE_PARSE_RETRY === "true";
+
     const allTurnRows = (allTurns ?? []) as RecentTurn[];
     const verbatimTurns = allTurnRows.slice(-3);
     const olderTurns = allTurnRows.slice(0, Math.max(0, allTurnRows.length - 3));
-    const worldSummary = olderTurns.length ? compactTurns(olderTurns) : state.worldSummary;
+    const rawSummary = olderTurns.length ? compactTurns(olderTurns) : state.worldSummary;
+    const worldSummary = disableWorldSummary ? null : rawSummary;
 
     const serverEffects = resolveServerTurnEffects(state, nextTurnNumber);
     const model = getModelName();
@@ -157,17 +162,28 @@ export async function POST(req: Request) {
       worldSummary,
     );
 
+    const t0 = Date.now();
     let completion = await client.responses.create({ model, input: prompt });
     let outputText = completion.output_text?.trim() || "";
+    let parseRetried = false;
     let turnPayload;
 
     try {
       turnPayload = parseTurnPayload(outputText);
     } catch {
+      if (disableParseRetry) {
+        throw new Error("Model returned unparseable JSON and retry is disabled.");
+      }
+      parseRetried = true;
       completion = await client.responses.create({ model, input: prompt });
       outputText = completion.output_text?.trim() || "";
       turnPayload = parseTurnPayload(outputText);
     }
+
+    const latencyMs = Date.now() - t0;
+    const usage = completion.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+    const inputTokens = usage?.input_tokens ?? 0;
+    const outputTokens = usage?.output_tokens ?? 0;
     const combinedEvents = [...serverEffects.events, ...turnPayload.events].slice(0, 5);
     const combinedDeltas = [...serverEffects.deltas, ...turnPayload.deltas];
     const nextState = applyDeltas(
@@ -179,6 +195,7 @@ export async function POST(req: Request) {
     nextState.worldSummary = worldSummary;
 
     const pendingConsequences = createPendingConsequences(playerInput, nextTurnNumber);
+
     nextState.pendingConsequences = [
       ...nextState.pendingConsequences,
       ...pendingConsequences,
@@ -193,6 +210,16 @@ export async function POST(req: Request) {
       nextState.ending = computeEnding(nextState);
     }
 
+    const metrics: TurnMetrics = {
+      latency_ms: latencyMs,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cost_usd: estimateCost(model, inputTokens, outputTokens),
+      parse_ok: true,
+      parse_retried: parseRetried,
+      standout: detectStandout(combinedEvents, nextState.stability, nextState.tension, gameOver),
+    };
+
     const { error: turnError } = await supabaseAdmin.from("turns").insert({
       game_id: gameId,
       turn_number: nextTurnNumber,
@@ -201,6 +228,7 @@ export async function POST(req: Request) {
       raw_response: {
         provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "openai",
         model: getModelName(),
+        metrics,
         promptContext: {
           turnNumber: nextTurnNumber,
           state: serverEffects.state,
@@ -261,6 +289,7 @@ export async function POST(req: Request) {
       state: nextState,
       ending: nextState.ending,
       cliffhanger: nextState.recentCliffhanger,
+      metrics,
     });
   } catch (error) {
     return NextResponse.json(
