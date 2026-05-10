@@ -29,14 +29,12 @@ export default function Home() {
         >
           View Saved Games
         </Link>
-        <a
+        <Link
           className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-700 transition hover:border-zinc-950 hover:text-zinc-950"
-          href="https://supabase.com/dashboard"
-          rel="noreferrer"
-          target="_blank"
+          href="/bunker"
         >
-          Open Supabase
-        </a>
+          Play Bunker Online
+        </Link>
       </div>
     </main>
   );
